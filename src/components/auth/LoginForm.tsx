@@ -22,34 +22,39 @@ export function LoginForm() {
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
+
     const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    let users: StoredUser[] = [];
+    let existingUsers: StoredUser[] = [];
 
     if (usersJson) {
       try {
-        users = JSON.parse(usersJson);
+        const parsedUsers = JSON.parse(usersJson);
+        // Ensure it's a non-empty array of users
+        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
+          existingUsers = parsedUsers;
+        }
       } catch (e) {
         console.error("Failed to parse users from localStorage:", e);
-        // Optional: Clear corrupted data by uncommenting the line below
-        // localStorage.removeItem(USERS_STORAGE_KEY);
-        // Fallback to an empty array; if it's empty, default users will be added.
+        // Clear corrupted data so defaults can be set
+        localStorage.removeItem(USERS_STORAGE_KEY);
+        // existingUsers remains empty, will fall through to default user creation
       }
     }
-    
-    // Ensure default demo users are present if no users are stored yet (or if parsing failed)
-    if (users.length === 0) {
-        const defaultUsers: StoredUser[] = [
-            { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
-            { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
-            { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
-        ];
-        // This check for window is slightly redundant due to the top-level guard, but harmless.
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-        }
-        return defaultUsers;
+
+    // If after trying to load, existingUsers is still empty, then populate with defaults.
+    // This happens if localStorage was empty, contained an empty array, or was corrupted.
+    if (existingUsers.length === 0) {
+      const defaultUsers: StoredUser[] = [
+        { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
+        { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
+        { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
+      ];
+      // localStorage is guaranteed to be available here due to the window check at the top.
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
+      return defaultUsers;
     }
-    return users;
+
+    return existingUsers;
   };
 
 
@@ -61,10 +66,10 @@ export function LoginForm() {
     try {
       if (!email || !password) {
         setError('Email and password are required.');
-        return; // setIsLoading(false) will be called in finally
+        return; 
       }
 
-      const users = getStoredUsers(); // Now handles potential JSON parse errors internally
+      const users = getStoredUsers(); 
       const foundUser = users.find(u => u.email === email);
 
       if (foundUser && foundUser.password === password) {
@@ -76,7 +81,6 @@ export function LoginForm() {
           avatarUrl: foundUser.avatarUrl || "https://placehold.co/100x100.png",
         };
         login(userToLogin, APP_ROUTES.DASHBOARD);
-        // isLoading will be set to false in the finally block
       } else {
         setError('Invalid email or password. Please check your credentials or register.');
       }
@@ -84,7 +88,7 @@ export function LoginForm() {
       console.error("Login submission error:", e);
       setError("An unexpected error occurred during login. Please try again.");
     } finally {
-      setIsLoading(false); // Ensure isLoading is reset
+      setIsLoading(false); 
     }
   };
 
