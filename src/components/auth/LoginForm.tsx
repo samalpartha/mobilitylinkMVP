@@ -22,38 +22,44 @@ export function LoginForm() {
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
-    
-    let loadedUsers: StoredUser[] = [];
-    let shouldPopulateDefaults = false;
 
+    let usersFromStorage: StoredUser[] | null = null;
+    
     try {
       const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-      if (usersJson) { // Key exists
+
+      if (usersJson !== null) { // Key exists
         try {
           const parsedData = JSON.parse(usersJson);
           if (Array.isArray(parsedData)) {
-            loadedUsers = parsedData; // Successfully loaded, could be an empty array
-          } else { // Data under key is not an array
-            console.warn("Stored user data in LoginForm is not an array. Clearing and preparing to populate defaults.");
-            localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
-            shouldPopulateDefaults = true;
+            usersFromStorage = parsedData; // Successfully loaded
+          } else {
+            // Data under key is not an array
+            console.warn("Stored user data in LoginForm is not an array. Clearing and will populate defaults.");
+            localStorage.removeItem(USERS_STORAGE_KEY);
+            // usersFromStorage remains null, defaults will be populated
           }
-        } catch (parseError) { // JSON parsing failed
-          console.error("Failed to parse users from localStorage in LoginForm. Clearing and preparing to populate defaults.", parseError);
-          localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
-          shouldPopulateDefaults = true;
+        } catch (parseError) {
+          // JSON parsing failed
+          console.error("Failed to parse users from localStorage in LoginForm. Clearing and will populate defaults.", parseError);
+          localStorage.removeItem(USERS_STORAGE_KEY);
+          // usersFromStorage remains null, defaults will be populated
         }
-      } else { // Key does NOT exist in localStorage
-        shouldPopulateDefaults = true;
+      } else {
+        // Key did not exist (usersJson is null)
+        // usersFromStorage remains null, defaults will be populated
+        console.log("LoginForm: No users key found in localStorage. Will populate defaults.");
       }
-    } catch (e) {
-      // Catch any other unexpected errors during localStorage access
-      console.error("Unexpected error accessing localStorage in getStoredUsers (LoginForm). Preparing to populate defaults.", e);
-      localStorage.removeItem(USERS_STORAGE_KEY); // Attempt to clear just in case
-      shouldPopulateDefaults = true;
+    } catch (storageAccessError) {
+      console.error("Unexpected error accessing localStorage in getStoredUsers (LoginForm). Will attempt to populate defaults.", storageAccessError);
+      try { localStorage.removeItem(USERS_STORAGE_KEY); } catch (e) { /* Best effort to clear */ }
+      // usersFromStorage remains null, defaults will be populated
     }
 
-    if (shouldPopulateDefaults) {
+    // Decision: populate defaults or use what was loaded?
+    if (usersFromStorage === null) { 
+      // This means key didn't exist, or parsing failed, or data wasn't an array
+      console.log("LoginForm: Populating default users into localStorage.");
       const defaultUsers: StoredUser[] = [
         { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
@@ -61,14 +67,16 @@ export function LoginForm() {
       ];
       try {
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-        return defaultUsers; // Return the newly set defaults
+        return defaultUsers;
       } catch (saveError) {
-        console.error("Failed to save default users to localStorage.", saveError);
-        return []; // Fallback to empty if saving defaults also fails
+        console.error("Failed to save default users to localStorage in LoginForm.", saveError);
+        return []; // Fallback if saving defaults also fails
       }
+    } else {
+      // Successfully loaded users from storage (could be an empty array if that's what was stored)
+      console.log("LoginForm: Using users loaded from localStorage.");
+      return usersFromStorage;
     }
-    
-    return loadedUsers; // Return users loaded from storage (could be empty if "[]" was stored)
   };
 
 
@@ -87,11 +95,10 @@ export function LoginForm() {
       const foundUser = users.find(u => u.email === email);
 
       if (foundUser && foundUser.password === password) {
-        let userRole: UserRole = UserRoles.RIDER; // Default role
+        let userRole: UserRole = UserRoles.RIDER; 
         let userName = foundUser.name;
         let userId = foundUser.id;
         let avatar = foundUser.avatarUrl || `https://placehold.co/100x100.png?text=${email.substring(0,2).toUpperCase()}`;
-
 
         if (Object.values(UserRoles).includes(foundUser.role as UserRoles)) {
             userRole = foundUser.role as UserRoles;
