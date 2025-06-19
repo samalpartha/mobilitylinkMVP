@@ -32,20 +32,18 @@ export function RegistrationForm() {
       if (usersJson) {
         const parsedData = JSON.parse(usersJson);
         if (Array.isArray(parsedData)) {
-          return parsedData; // Return existing users if data is valid array
+          return parsedData;
         } else {
-          // Data is not an array, implies corruption or unexpected format
           console.warn("Stored user data in RegistrationForm is not an array. Clearing and starting fresh.");
           localStorage.removeItem(USERS_STORAGE_KEY);
-          return []; // Start with an empty list
+          return [];
         }
       }
-      return []; // No usersJson found, start with an empty list
+      return [];
     } catch (e) {
-      // JSON parsing failed, implies corruption
       console.error("Failed to parse users from localStorage in RegistrationForm. Clearing and starting fresh.", e);
       localStorage.removeItem(USERS_STORAGE_KEY);
-      return []; // Start with an empty list in case of error
+      return [];
     }
   };
 
@@ -79,7 +77,7 @@ export function RegistrationForm() {
     }
     
     const userId = email; 
-    const avatarUrl = "https://placehold.co/100x100.png";
+    const avatarUrl = `https://placehold.co/100x100.png?text=${name.substring(0,2).toUpperCase()}`;
 
     const newUser: StoredUser = {
       id: userId,
@@ -96,7 +94,7 @@ export function RegistrationForm() {
 
     toast({
       title: "Registration Successful!",
-      description: "You can now log in with your new account.",
+      description: `You can now log in. A confirmation email has been sent to ${email}.`,
     });
     router.push(APP_ROUTES.LOGIN);
   };
