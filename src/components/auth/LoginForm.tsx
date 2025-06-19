@@ -27,10 +27,10 @@ export function LoginForm() {
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
     const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    const_users = usersJson ? JSON.parse(usersJson) : [];
+    const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
     
     // Ensure default demo users are present if no users are stored yet for easier first-time demo
-    if (const_users.length === 0) {
+    if (users.length === 0) {
         const defaultUsers: StoredUser[] = [
             { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
             { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
@@ -41,7 +41,7 @@ export function LoginForm() {
         }
         return defaultUsers;
     }
-    return const_users;
+    return users;
   };
 
 
@@ -169,3 +169,4 @@ export function LoginForm() {
     </div>
   );
 }
+
