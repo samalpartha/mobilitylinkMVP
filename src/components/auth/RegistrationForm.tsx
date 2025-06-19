@@ -27,8 +27,26 @@ export function RegistrationForm() {
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
-    const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    return usersJson ? JSON.parse(usersJson) : [];
+    try {
+      const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
+      if (usersJson) {
+        const parsedData = JSON.parse(usersJson);
+        if (Array.isArray(parsedData)) {
+          return parsedData; // Return existing users if data is valid array
+        } else {
+          // Data is not an array, implies corruption or unexpected format
+          console.warn("Stored user data in RegistrationForm is not an array. Clearing and starting fresh.");
+          localStorage.removeItem(USERS_STORAGE_KEY);
+          return []; // Start with an empty list
+        }
+      }
+      return []; // No usersJson found, start with an empty list
+    } catch (e) {
+      // JSON parsing failed, implies corruption
+      console.error("Failed to parse users from localStorage in RegistrationForm. Clearing and starting fresh.", e);
+      localStorage.removeItem(USERS_STORAGE_KEY);
+      return []; // Start with an empty list in case of error
+    }
   };
 
   const saveStoredUsers = (users: StoredUser[]) => {
@@ -60,14 +78,14 @@ export function RegistrationForm() {
       return;
     }
     
-    const userId = email; // Simple ID generation for MVP
+    const userId = email; 
     const avatarUrl = "https://placehold.co/100x100.png";
 
     const newUser: StoredUser = {
       id: userId,
       name,
       email,
-      password, // Storing password - NOT SECURE FOR PRODUCTION
+      password, 
       role,
       avatarUrl,
     };

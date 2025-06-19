@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '@/hooks/useAuth';
-import type { User, StoredUser } from '@/types';
+import type { User, StoredUser, UserRole } from '@/types';
 import { UserRoles, APP_ROUTES, USERS_STORAGE_KEY } from '@/lib/authConstants';
 import { LogIn, Mail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
@@ -22,41 +22,50 @@ export function LoginForm() {
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
+    
+    let populateDefaults = false;
+    let usersToReturn: StoredUser[] = [];
 
-    const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    let usersToReturn: StoredUser[] | null = null;
-
-    if (usersJson) {
-      try {
+    try {
+      const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
+      if (usersJson) {
         const parsedData = JSON.parse(usersJson);
         if (Array.isArray(parsedData)) {
-          usersToReturn = parsedData; // Use the data if it's an array (even empty)
+          usersToReturn = parsedData;
+          // If the retrieved list is empty, it's okay, it means no users are registered yet,
+          // but we might still want to populate defaults IF this is the first ever load for the user.
+          // However, if users registered and then all got deleted, an empty array is valid.
+          // The main trigger for defaults is if USERS_STORAGE_KEY is MISSING or CORRUPTED.
         } else {
-          // Data is not an array, implies corruption or unexpected format
-          console.warn("Stored user data is not an array. Resetting to defaults.");
-          localStorage.removeItem(USERS_STORAGE_KEY); // Clear invalid data
+          // Data is not an array, implies corruption
+          console.warn("Stored user data is not an array. Clearing and preparing to populate defaults.");
+          localStorage.removeItem(USERS_STORAGE_KEY);
+          populateDefaults = true;
         }
-      } catch (e) {
-        // JSON parsing failed, implies corruption
-        console.error("Failed to parse users from localStorage. Resetting to defaults.", e);
-        localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
+      } else {
+        // No data in localStorage for this key, so populate defaults
+        populateDefaults = true;
       }
+    } catch (e) {
+      // JSON parsing failed, implies corruption
+      console.error("Failed to parse users from localStorage. Clearing and preparing to populate defaults.", e);
+      localStorage.removeItem(USERS_STORAGE_KEY);
+      populateDefaults = true;
     }
 
-    // If usersToReturn is still null, it means:
-    // 1. localStorage item didn't exist (usersJson was null)
-    // 2. Stored data was corrupted and cleared
-    if (usersToReturn === null) {
+    if (populateDefaults) {
       const defaultUsers: StoredUser[] = [
         { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
       ];
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-      usersToReturn = defaultUsers;
+      return defaultUsers;
     }
-
-    return usersToReturn;
+    
+    // If we had an empty array from localStorage (e.g. "[]") and didn't populate defaults, return that.
+    // This means users registered, then potentially all were cleared, or simply no default trigger occurred.
+    return usersToReturn; 
   };
 
 
@@ -75,12 +84,23 @@ export function LoginForm() {
       const foundUser = users.find(u => u.email === email);
 
       if (foundUser && foundUser.password === password) {
+        // Determine role, name, id, and avatar for login
+        let userRole: UserRole = UserRoles.RIDER; // Default role
+        let userName = foundUser.name;
+        let userId = foundUser.id;
+        let avatar = foundUser.avatarUrl || `https://placehold.co/100x100.png?text=${email.substring(0,2).toUpperCase()}`;
+
+
+        if (Object.values(UserRoles).includes(foundUser.role as UserRoles)) {
+            userRole = foundUser.role as UserRoles;
+        }
+        
         const userToLogin: User = {
-          id: foundUser.id,
-          name: foundUser.name,
+          id: userId,
+          name: userName,
           email: foundUser.email,
-          role: foundUser.role, 
-          avatarUrl: foundUser.avatarUrl || "https://placehold.co/100x100.png",
+          role: userRole, 
+          avatarUrl: avatar,
         };
         login(userToLogin, APP_ROUTES.DASHBOARD);
       } else {
