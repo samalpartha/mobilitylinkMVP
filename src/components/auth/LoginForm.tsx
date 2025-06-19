@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Keep Select for consistency if needed, or remove if role is not selected at login
 import { useAuth } from '@/hooks/useAuth';
-import type { User, UserRole, StoredUser } from '@/types';
+import type { User, StoredUser } from '@/types';
 import { UserRoles, APP_ROUTES, USERS_STORAGE_KEY } from '@/lib/authConstants';
 import { LogIn, Mail, KeyRound } from 'lucide-react';
 import Link from 'next/link';
@@ -18,24 +17,33 @@ export function LoginForm() {
   const { login } = useAuth();
   const [email, setEmail] = useState('rider@example.com');
   const [password, setPassword] = useState('password');
-  // Role selection might be removed from login if role is fixed upon registration
-  // For now, keeping it to allow demoing different roles with same email if needed, though less realistic.
-  const [role, setRole] = useState<UserRole>(UserRoles.RIDER); 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
     const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+    let users: StoredUser[] = [];
+
+    if (usersJson) {
+      try {
+        users = JSON.parse(usersJson);
+      } catch (e) {
+        console.error("Failed to parse users from localStorage:", e);
+        // Optional: Clear corrupted data by uncommenting the line below
+        // localStorage.removeItem(USERS_STORAGE_KEY);
+        // Fallback to an empty array; if it's empty, default users will be added.
+      }
+    }
     
-    // Ensure default demo users are present if no users are stored yet for easier first-time demo
+    // Ensure default demo users are present if no users are stored yet (or if parsing failed)
     if (users.length === 0) {
         const defaultUsers: StoredUser[] = [
             { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
             { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
             { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
         ];
+        // This check for window is slightly redundant due to the top-level guard, but harmless.
         if (typeof window !== 'undefined') {
             localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
         }
@@ -50,32 +58,34 @@ export function LoginForm() {
     setError('');
     setIsLoading(true);
 
-    if (!email || !password) {
-      setError('Email and password are required.');
-      setIsLoading(false);
-      return;
-    }
+    try {
+      if (!email || !password) {
+        setError('Email and password are required.');
+        return; // setIsLoading(false) will be called in finally
+      }
 
-    const users = getStoredUsers();
-    const foundUser = users.find(u => u.email === email);
+      const users = getStoredUsers(); // Now handles potential JSON parse errors internally
+      const foundUser = users.find(u => u.email === email);
 
-    if (foundUser && foundUser.password === password) {
-      // User found and password matches.
-      // It's important that the 'role' used for login is the one stored with the user,
-      // not necessarily the one selected in the form (if role select is kept).
-      // For this MVP, we'll use the stored role.
-      const userToLogin: User = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role, // Use the role from storage
-        avatarUrl: foundUser.avatarUrl || "https://placehold.co/100x100.png",
-      };
-      login(userToLogin, APP_ROUTES.DASHBOARD);
-    } else {
-      setError('Invalid email or password. Please check your credentials or register.');
+      if (foundUser && foundUser.password === password) {
+        const userToLogin: User = {
+          id: foundUser.id,
+          name: foundUser.name,
+          email: foundUser.email,
+          role: foundUser.role, 
+          avatarUrl: foundUser.avatarUrl || "https://placehold.co/100x100.png",
+        };
+        login(userToLogin, APP_ROUTES.DASHBOARD);
+        // isLoading will be set to false in the finally block
+      } else {
+        setError('Invalid email or password. Please check your credentials or register.');
+      }
+    } catch (e) {
+      console.error("Login submission error:", e);
+      setError("An unexpected error occurred during login. Please try again.");
+    } finally {
+      setIsLoading(false); // Ensure isLoading is reset
     }
-    setIsLoading(false);
   };
 
   return (
@@ -124,25 +134,6 @@ export function LoginForm() {
                 />
               </div>
             </div>
-            {/* Role select at login is less common if role is fixed at registration. 
-                Can be removed for a more standard flow, or kept for demo flexibility.
-                If kept, validation should ensure the selected role matches the stored user's role if applicable.
-            */}
-            {/* 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role (For Demo)</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as UserRole)} disabled={isLoading}>
-                <SelectTrigger id="role" className="w-full">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UserRoles.RIDER}>Rider</SelectItem>
-                  <SelectItem value={UserRoles.ADMIN}>Admin/Dispatcher</SelectItem>
-                  <SelectItem value={UserRoles.CLIENT}>Client</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            */}
             {error && <p id="login-error" className="text-sm text-destructive text-center">{error}</p>}
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6 rounded-lg shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
              {isLoading ? (
@@ -169,4 +160,3 @@ export function LoginForm() {
     </div>
   );
 }
-
