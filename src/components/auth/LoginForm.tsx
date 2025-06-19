@@ -24,37 +24,39 @@ export function LoginForm() {
     if (typeof window === 'undefined') return [];
 
     const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    let existingUsers: StoredUser[] = [];
+    let usersToReturn: StoredUser[] | null = null;
 
     if (usersJson) {
       try {
-        const parsedUsers = JSON.parse(usersJson);
-        // Ensure it's a non-empty array of users
-        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-          existingUsers = parsedUsers;
+        const parsedData = JSON.parse(usersJson);
+        if (Array.isArray(parsedData)) {
+          usersToReturn = parsedData; // Use the data if it's an array (even empty)
+        } else {
+          // Data is not an array, implies corruption or unexpected format
+          console.warn("Stored user data is not an array. Resetting to defaults.");
+          localStorage.removeItem(USERS_STORAGE_KEY); // Clear invalid data
         }
       } catch (e) {
-        console.error("Failed to parse users from localStorage:", e);
-        // Clear corrupted data so defaults can be set
-        localStorage.removeItem(USERS_STORAGE_KEY);
-        // existingUsers remains empty, will fall through to default user creation
+        // JSON parsing failed, implies corruption
+        console.error("Failed to parse users from localStorage. Resetting to defaults.", e);
+        localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
       }
     }
 
-    // If after trying to load, existingUsers is still empty, then populate with defaults.
-    // This happens if localStorage was empty, contained an empty array, or was corrupted.
-    if (existingUsers.length === 0) {
+    // If usersToReturn is still null, it means:
+    // 1. localStorage item didn't exist (usersJson was null)
+    // 2. Stored data was corrupted and cleared
+    if (usersToReturn === null) {
       const defaultUsers: StoredUser[] = [
         { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
       ];
-      // localStorage is guaranteed to be available here due to the window check at the top.
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-      return defaultUsers;
+      usersToReturn = defaultUsers;
     }
 
-    return existingUsers;
+    return usersToReturn;
   };
 
 
