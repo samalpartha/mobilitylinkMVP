@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent } from 'react';
@@ -28,27 +29,41 @@ export function LoginForm() {
       return;
     }
 
-    // Mock authentication logic
-    let userName = "Demo User";
-    let avatar = "/assets/avatars/avatar-1.png"; // Default avatar
+    // Mock authentication: "registers" and logs in the user.
+    // Any non-empty email/password will "succeed" for demo purposes.
+    let determinedUserId: string;
+    let determinedUserName: string;
+    // Default placeholder avatar. Specific hints are applied in components displaying the avatar.
+    let determinedAvatarUrl = "https://placehold.co/100x100.png"; 
 
-    if (email.includes('rider')) {
-        userName = "Alex Rider";
-        avatar = "https://placehold.co/100x100.png"; // data-ai-hint="male portrait"
-    } else if (email.includes('admin')) {
-        userName = "Chris Admin";
-        avatar = "https://placehold.co/100x100.png"; // data-ai-hint="female portrait"
-    } else if (email.includes('client')) {
-        userName = "Sam Client";
-        avatar = "https://placehold.co/100x100.png"; // data-ai-hint="person smiling"
+    const emailPrefix = email.split('@')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim(); // Sanitize for name generation
+    const capitalizedEmailPrefix = emailPrefix.length > 0 
+      ? emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+      : "User";
+
+    // Assign specific IDs and names for predefined demo users to match mock data structures.
+    // For other users, generate dynamically.
+    if (email === 'rider@example.com' && role === UserRoles.RIDER) {
+        determinedUserId = "RIDER_001";
+        determinedUserName = "Alex Rider";
+    } else if (email === 'admin@example.com' && role === UserRoles.ADMIN) {
+        determinedUserId = "ADMIN_001";
+        determinedUserName = "Chris Admin";
+    } else if (email === 'client@example.com' && role === UserRoles.CLIENT) {
+        determinedUserId = "CLIENT_001";
+        determinedUserName = "Sam Client";
+    } else {
+        // For any other user, use email as ID and derive name from email prefix.
+        determinedUserId = email; 
+        determinedUserName = capitalizedEmailPrefix || "Demo User";
     }
     
     const mockUser: User = {
-      id: Date.now().toString(),
-      name: userName,
+      id: determinedUserId,
+      name: determinedUserName,
       email: email,
       role: role,
-      avatarUrl: avatar,
+      avatarUrl: determinedAvatarUrl, 
     };
 
     login(mockUser, APP_ROUTES.DASHBOARD);
