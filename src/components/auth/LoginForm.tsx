@@ -23,49 +23,52 @@ export function LoginForm() {
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
     
-    let populateDefaults = false;
-    let usersToReturn: StoredUser[] = [];
+    let loadedUsers: StoredUser[] = [];
+    let shouldPopulateDefaults = false;
 
     try {
       const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-      if (usersJson) {
-        const parsedData = JSON.parse(usersJson);
-        if (Array.isArray(parsedData)) {
-          usersToReturn = parsedData;
-          // If the retrieved list is empty, it's okay, it means no users are registered yet,
-          // but we might still want to populate defaults IF this is the first ever load for the user.
-          // However, if users registered and then all got deleted, an empty array is valid.
-          // The main trigger for defaults is if USERS_STORAGE_KEY is MISSING or CORRUPTED.
-        } else {
-          // Data is not an array, implies corruption
-          console.warn("Stored user data is not an array. Clearing and preparing to populate defaults.");
-          localStorage.removeItem(USERS_STORAGE_KEY);
-          populateDefaults = true;
+      if (usersJson) { // Key exists
+        try {
+          const parsedData = JSON.parse(usersJson);
+          if (Array.isArray(parsedData)) {
+            loadedUsers = parsedData; // Successfully loaded, could be an empty array
+          } else { // Data under key is not an array
+            console.warn("Stored user data in LoginForm is not an array. Clearing and preparing to populate defaults.");
+            localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
+            shouldPopulateDefaults = true;
+          }
+        } catch (parseError) { // JSON parsing failed
+          console.error("Failed to parse users from localStorage in LoginForm. Clearing and preparing to populate defaults.", parseError);
+          localStorage.removeItem(USERS_STORAGE_KEY); // Clear corrupted data
+          shouldPopulateDefaults = true;
         }
-      } else {
-        // No data in localStorage for this key, so populate defaults
-        populateDefaults = true;
+      } else { // Key does NOT exist in localStorage
+        shouldPopulateDefaults = true;
       }
     } catch (e) {
-      // JSON parsing failed, implies corruption
-      console.error("Failed to parse users from localStorage. Clearing and preparing to populate defaults.", e);
-      localStorage.removeItem(USERS_STORAGE_KEY);
-      populateDefaults = true;
+      // Catch any other unexpected errors during localStorage access
+      console.error("Unexpected error accessing localStorage in getStoredUsers (LoginForm). Preparing to populate defaults.", e);
+      localStorage.removeItem(USERS_STORAGE_KEY); // Attempt to clear just in case
+      shouldPopulateDefaults = true;
     }
 
-    if (populateDefaults) {
+    if (shouldPopulateDefaults) {
       const defaultUsers: StoredUser[] = [
         { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
         { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
       ];
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-      return defaultUsers;
+      try {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
+        return defaultUsers; // Return the newly set defaults
+      } catch (saveError) {
+        console.error("Failed to save default users to localStorage.", saveError);
+        return []; // Fallback to empty if saving defaults also fails
+      }
     }
     
-    // If we had an empty array from localStorage (e.g. "[]") and didn't populate defaults, return that.
-    // This means users registered, then potentially all were cleared, or simply no default trigger occurred.
-    return usersToReturn; 
+    return loadedUsers; // Return users loaded from storage (could be empty if "[]" was stored)
   };
 
 
@@ -84,7 +87,6 @@ export function LoginForm() {
       const foundUser = users.find(u => u.email === email);
 
       if (foundUser && foundUser.password === password) {
-        // Determine role, name, id, and avatar for login
         let userRole: UserRole = UserRoles.RIDER; // Default role
         let userName = foundUser.name;
         let userId = foundUser.id;
