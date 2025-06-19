@@ -1,3 +1,4 @@
+
 export type UserRole = "ADMIN" | "RIDER" | "CLIENT";
 
 export interface User {
@@ -6,6 +7,11 @@ export interface User {
   email: string;
   role: UserRole;
   avatarUrl?: string;
+}
+
+// This type is for storing user data including password in localStorage (for MVP only)
+export interface StoredUser extends User {
+  password?: string; // Password will be stored for MVP, NOT secure for production
 }
 
 export interface RiderProfileData {

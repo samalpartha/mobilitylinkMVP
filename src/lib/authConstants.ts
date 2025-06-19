@@ -1,4 +1,6 @@
+
 export const AUTH_COOKIE_NAME = 'mobilitylink-auth';
+export const USERS_STORAGE_KEY = 'mobilitylink-users';
 
 export enum UserRoles {
   ADMIN = "ADMIN",
@@ -8,6 +10,7 @@ export enum UserRoles {
 
 export const APP_ROUTES = {
   LOGIN: "/login",
+  REGISTER: "/register",
   DASHBOARD: "/dashboard",
   PROFILE: "/profile",
   MAP: "/map",

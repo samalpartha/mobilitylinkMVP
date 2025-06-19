@@ -2,80 +2,85 @@
 "use client";
 
 import { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Keep Select for consistency if needed, or remove if role is not selected at login
-import { useAuth } from '@/hooks/useAuth';
-import type { User, UserRole, StoredUser } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { UserRole, StoredUser } from '@/types';
 import { UserRoles, APP_ROUTES, USERS_STORAGE_KEY } from '@/lib/authConstants';
-import { LogIn, Mail, KeyRound } from 'lucide-react';
+import { UserPlus, Mail, KeyRound, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Logo } from '@/components/shared/Logo';
+import { useToast } from '@/hooks/use-toast';
 
-export function LoginForm() {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('rider@example.com');
-  const [password, setPassword] = useState('password');
-  // Role selection might be removed from login if role is fixed upon registration
-  // For now, keeping it to allow demoing different roles with same email if needed, though less realistic.
-  const [role, setRole] = useState<UserRole>(UserRoles.RIDER); 
+export function RegistrationForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>(UserRoles.RIDER);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const getStoredUsers = (): StoredUser[] => {
     if (typeof window === 'undefined') return [];
     const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    const_users = usersJson ? JSON.parse(usersJson) : [];
-    
-    // Ensure default demo users are present if no users are stored yet for easier first-time demo
-    if (const_users.length === 0) {
-        const defaultUsers: StoredUser[] = [
-            { id: "RIDER_001", name: "Alex Rider", email: "rider@example.com", password: "password", role: UserRoles.RIDER, avatarUrl: "https://placehold.co/100x100.png" },
-            { id: "ADMIN_001", name: "Chris Admin", email: "admin@example.com", password: "password", role: UserRoles.ADMIN, avatarUrl: "https://placehold.co/100x100.png" },
-            { id: "CLIENT_001", name: "Sam Client", email: "client@example.com", password: "password", role: UserRoles.CLIENT, avatarUrl: "https://placehold.co/100x100.png" },
-        ];
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaultUsers));
-        }
-        return defaultUsers;
-    }
-    return const_users;
+    return usersJson ? JSON.parse(usersJson) : [];
   };
 
+  const saveStoredUsers = (users: StoredUser[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    }
+  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     setError('');
     setIsLoading(true);
 
-    if (!email || !password) {
-      setError('Email and password are required.');
+    if (!name || !email || !password) {
+      setError('All fields are required.');
+      setIsLoading(false);
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       setIsLoading(false);
       return;
     }
 
     const users = getStoredUsers();
-    const foundUser = users.find(u => u.email === email);
-
-    if (foundUser && foundUser.password === password) {
-      // User found and password matches.
-      // It's important that the 'role' used for login is the one stored with the user,
-      // not necessarily the one selected in the form (if role select is kept).
-      // For this MVP, we'll use the stored role.
-      const userToLogin: User = {
-        id: foundUser.id,
-        name: foundUser.name,
-        email: foundUser.email,
-        role: foundUser.role, // Use the role from storage
-        avatarUrl: foundUser.avatarUrl || "https://placehold.co/100x100.png",
-      };
-      login(userToLogin, APP_ROUTES.DASHBOARD);
-    } else {
-      setError('Invalid email or password. Please check your credentials or register.');
+    if (users.find(u => u.email === email)) {
+      setError('Email already registered. Please try logging in.');
+      setIsLoading(false);
+      return;
     }
+    
+    const userId = email; // Simple ID generation for MVP
+    const avatarUrl = "https://placehold.co/100x100.png";
+
+    const newUser: StoredUser = {
+      id: userId,
+      name,
+      email,
+      password, // Storing password - NOT SECURE FOR PRODUCTION
+      role,
+      avatarUrl,
+    };
+
+    users.push(newUser);
+    saveStoredUsers(users);
     setIsLoading(false);
+
+    toast({
+      title: "Registration Successful!",
+      description: "You can now log in with your new account.",
+    });
+    router.push(APP_ROUTES.LOGIN);
   };
 
   return (
@@ -85,11 +90,27 @@ export function LoginForm() {
       </div>
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline text-center">Welcome Back!</CardTitle>
-          <CardDescription className="text-center">Sign in to access your MobilityLink dashboard.</CardDescription>
+          <CardTitle className="text-3xl font-headline text-center">Create Account</CardTitle>
+          <CardDescription className="text-center">Join MobilityLink today.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <div className="relative">
+                <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                  id="name" 
+                  type="text" 
+                  placeholder="Your Name" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  required 
+                  className="pl-10"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
@@ -102,7 +123,6 @@ export function LoginForm() {
                   onChange={(e) => setEmail(e.target.value)} 
                   required 
                   className="pl-10"
-                  aria-describedby={error ? "email-error" : undefined}
                   disabled={isLoading}
                 />
               </div>
@@ -114,21 +134,15 @@ export function LoginForm() {
                 <Input 
                   id="password" 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="•••••••• (min. 6 characters)" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
                   className="pl-10"
-                  aria-describedby={error ? "password-error" : undefined}
                   disabled={isLoading}
                 />
               </div>
             </div>
-            {/* Role select at login is less common if role is fixed at registration. 
-                Can be removed for a more standard flow, or kept for demo flexibility.
-                If kept, validation should ensure the selected role matches the stored user's role if applicable.
-            */}
-            {/* 
             <div className="space-y-2">
               <Label htmlFor="role">Role (For Demo)</Label>
               <Select value={role} onValueChange={(value) => setRole(value as UserRole)} disabled={isLoading}>
@@ -142,27 +156,26 @@ export function LoginForm() {
                 </SelectContent>
               </Select>
             </div>
-            */}
-            {error && <p id="login-error" className="text-sm text-destructive text-center">{error}</p>}
+            {error && <p className="text-sm text-destructive text-center">{error}</p>}
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6 rounded-lg shadow-md hover:shadow-lg transition-shadow" disabled={isLoading}>
-             {isLoading ? (
+              {isLoading ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Signing In...
+                  Registering...
                 </>
               ) : (
                 <>
-                  <LogIn className="mr-2 h-5 w-5" /> Sign In
+                  <UserPlus className="mr-2 h-5 w-5" /> Register
                 </>
               )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col items-center text-sm text-muted-foreground space-y-2">
-          <p>Don't have an account? <Link href={APP_ROUTES.REGISTER} className="text-primary hover:underline">Register here</Link></p>
+          <p>Already have an account? <Link href={APP_ROUTES.LOGIN} className="text-primary hover:underline">Sign In</Link></p>
           <p>Part of the MobilityLink Open Source Suite.</p>
         </CardFooter>
       </Card>
